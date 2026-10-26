@@ -66,6 +66,10 @@ Hospital Queue is a web application for managing patient appointments, emergency
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | Run ESLint |
 
+## GitHub Pages deployment
+
+The workflow in `.github/workflows/build.yml` builds and deploys the app when changes are pushed to `main`. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions**. Configure the Firebase `VITE_FIREBASE_*` values listed above as repository or environment secrets so the deployed app can connect to Firebase.
+
 ## Firebase setup
 
 Configure the Firebase services used by the application in the Firebase Console. Add the local development URL and any deployed app URL to the authorized domains for Firebase Authentication. Set Firestore security rules appropriate to your deployment and verify that they restrict access to authorized users.
