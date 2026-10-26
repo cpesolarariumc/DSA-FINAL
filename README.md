@@ -68,7 +68,7 @@ Hospital Queue is a web application for managing patient appointments, emergency
 
 ## GitHub Pages deployment
 
-The workflow in `.github/workflows/build.yml` builds and deploys the app when changes are pushed to `main`. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions**. Configure the Firebase `VITE_FIREBASE_*` values listed above as repository or environment secrets so the deployed app can connect to Firebase.
+The workflow in `.github/workflows/build.yml` builds and deploys the app when changes are pushed to `main`. It also publishes a GitHub Pages fallback so direct links to staff login routes work. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions**. Configure the Firebase `VITE_FIREBASE_*` values listed above as repository or environment secrets so the deployed app can connect to Firebase.
 
 ## Firebase setup
 
