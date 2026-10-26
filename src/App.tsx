@@ -35,6 +35,7 @@ import {
   subscribeToEmergencyRouting,
   getEmergencyDestination,
   updatePatientPersonalProfile,
+  updatePatientNameOnce,
 } from './services/patientService';
 import { subscribeToAppointments, updateAppointmentStatus, type AppointmentRequest } from './services/appointmentService';
 import { createDoctorAccount, ensureDoctorProfileAtAuthUid } from './services/doctorService';
@@ -225,7 +226,12 @@ export default function App() {
     address?: string;
     allergies?: string;
     profileCompleted?: boolean;
+    nameEditUsed?: boolean;
   } | null>(null);
+  const [isEditingPatientName, setIsEditingPatientName] = useState(false);
+  const [patientNameInput, setPatientNameInput] = useState('');
+  const [isSavingPatientName, setIsSavingPatientName] = useState(false);
+  const [patientNameError, setPatientNameError] = useState<string | null>(null);
 
   const [profileFormData, setProfileFormData] = useState({
     sex: 'Male',
@@ -504,6 +510,7 @@ export default function App() {
         const data = patientDoc.data();
         setPatientDocId(patientDoc.id);
         setPatientProfile(data);
+        setPatientNameInput(typeof data.fullName === 'string' ? data.fullName : '');
         if (data.sex || data.age || data.birthday || data.contact || data.address) {
           setProfileFormData({
             sex: data.sex || 'Male',
@@ -2052,11 +2059,103 @@ export default function App() {
           <div className="mx-auto min-h-full w-full max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8">
             <section id="personal-profile" className="space-y-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
               <h4 className="text-lg font-bold text-slate-800">Personal profile</h4>
+              {patientProfile && (
+                <div className="rounded-2xl bg-slate-50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Full Name</p>
+                  {isEditingPatientName ? (
+                    <form
+                      className="mt-2 space-y-3"
+                      onSubmit={async (event) => {
+                        event.preventDefault();
+                        if (!patientDocId) {
+                          setPatientNameError('Your patient profile could not be found. Please sign in again.');
+                          return;
+                        }
+                        if (patientNameInput.trim() === patientProfile.fullName?.trim()) {
+                          setPatientNameError('Enter a different name before saving.');
+                          return;
+                        }
+
+                        setIsSavingPatientName(true);
+                        setPatientNameError(null);
+                        try {
+                          const fullName = await updatePatientNameOnce(patientDocId, patientNameInput);
+                          setPatientProfile((profile) => profile
+                            ? { ...profile, fullName, nameEditUsed: true }
+                            : profile);
+                          setCurrentUser((user) => user ? { ...user, name: fullName } : user);
+                          setPatientNameInput(fullName);
+                          setIsEditingPatientName(false);
+                        } catch (error) {
+                          const details = error as { code?: string; message?: string };
+                          setPatientNameError(details.code === 'permission-denied'
+                            ? 'The name update was denied. Ensure the updated patient rules from firebaseRuling.txt are published in Firebase Console.'
+                            : details.message || 'Could not update your name. Please try again.');
+                        } finally {
+                          setIsSavingPatientName(false);
+                        }
+                      }}
+                    >
+                      <input
+                        autoFocus
+                        type="text"
+                        required
+                        maxLength={100}
+                        value={patientNameInput}
+                        onChange={(event) => setPatientNameInput(event.target.value)}
+                        aria-label="New full name"
+                        className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-[#1b7a57]"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                        disabled={isSavingPatientName || patientNameInput.trim() === patientProfile.fullName?.trim()}
+                          className="rounded-xl bg-[#1b7a57] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                        >
+                          {isSavingPatientName ? 'Saving...' : 'Save name (one-time edit)'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSavingPatientName}
+                          onClick={() => {
+                            setPatientNameInput(patientProfile.fullName || '');
+                            setPatientNameError(null);
+                            setIsEditingPatientName(false);
+                          }}
+                          className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-bold text-slate-700 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="mt-1 flex flex-wrap items-center gap-3">
+                      <p className="break-words font-medium text-slate-800">{patientProfile.fullName || currentUser.name}</p>
+                      {patientProfile.nameEditUsed !== true && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPatientNameInput(patientProfile.fullName || currentUser.name);
+                            setPatientNameError(null);
+                            setIsEditingPatientName(true);
+                          }}
+                          className="text-sm font-bold text-emerald-700 underline underline-offset-2"
+                        >
+                          Edit name once
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {patientProfile.nameEditUsed === true && !isEditingPatientName && (
+                    <p className="mt-1 text-xs text-slate-500">Your one-time name edit has been used.</p>
+                  )}
+                  {patientNameError && <p role="alert" className="mt-2 text-sm font-medium text-red-700">{patientNameError}</p>}
+                </div>
+              )}
               {patientProfile?.profileCompleted ? (
               /* READ-ONLY VIEW */
               <div className="grid grid-cols-1 gap-4 text-sm text-slate-700 sm:grid-cols-2">
                 {[
-                  ['Full Name', patientProfile.fullName || currentUser.name],
                   ['Email', currentUser.email || 'Not provided'],
                   ['Sex', patientProfile.sex || 'Not specified'],
                   ['Age', patientProfile.age || 'Not specified'],

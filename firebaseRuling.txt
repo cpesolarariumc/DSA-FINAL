@@ -82,6 +82,17 @@ service cloud.firestore {
             'updatedAt'
           ])
         || (
+          ownsPatient(patientId)
+          && resource.data.get('nameEditUsed', false) == false
+          && request.resource.data.nameEditUsed == true
+          && request.resource.data.fullName is string
+          && request.resource.data.fullName.size() > 0
+          && request.resource.data.fullName.size() <= 100
+          && request.resource.data.fullName != resource.data.fullName
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['fullName', 'nameEditUsed', 'updatedAt'])
+        )
+        || (
           (doctorProfileExists() || roomProfileExists())
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['allergies', 'updatedAt'])

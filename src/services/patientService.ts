@@ -323,6 +323,21 @@ export async function updatePatientPersonalProfile(docId: string, data: {
   });
 }
 
+export async function updatePatientNameOnce(docId: string, fullName: string) {
+  const normalizedName = fullName.trim().replace(/\s+/g, ' ');
+  if (!normalizedName || normalizedName.length > 100) {
+    throw new Error('Enter a name between 1 and 100 characters.');
+  }
+
+  await updateDoc(doc(db, 'patients', docId), {
+    fullName: normalizedName,
+    nameEditUsed: true,
+    updatedAt: serverTimestamp(),
+  });
+
+  return normalizedName;
+}
+
 /**
  * Creates and saves a prescription record to Firestore
  */

@@ -74,6 +74,8 @@ The workflow in `.github/workflows/build.yml` builds and deploys the app when ch
 
 Configure the Firebase services used by the application in the Firebase Console. Add the local development URL and any deployed app URL to the authorized domains for Firebase Authentication. Set Firestore security rules appropriate to your deployment and verify that they restrict access to authorized users.
 
+For the one-time patient name edit, publish the patient update rules from `firebaseRuling.txt` in Firebase Console → Firestore Database → Rules. The app cannot enforce the one-edit limit securely unless those rules are active.
+
 The Firebase web configuration is used by a browser application and is not a substitute for access control. Never commit service-account credentials, private keys, patient data, or other secrets to the repository.
 
 ## Project structure
