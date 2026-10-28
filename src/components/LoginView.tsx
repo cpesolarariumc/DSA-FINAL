@@ -6,7 +6,8 @@ import {
   GoogleAuthProvider, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
-  sendEmailVerification
+  sendEmailVerification,
+  type User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
@@ -14,7 +15,7 @@ interface LoginViewProps {
   isLoggingIn: boolean;
   onLogin: (e: React.FormEvent, credentials?: { email: string; pass: string }) => void;
   onRegister: (newUserData: { uid: string; fullName: string; email: string; phone: string }) => Promise<void>;
-  onGoogleSuccess: (user: any) => void;
+  onGoogleSuccess: (user: FirebaseUser) => void;
   onSwitchToOtp?: (mode?: 'signup' | 'forgot' | 'login') => void;
 }
 
@@ -79,8 +80,11 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
         setMode('login');
       }, 3000);
 
-    } catch (err: any) {
-      setMessage({ text: err.message || 'An error occurred. Please try again.', type: 'error' });
+    } catch (err: unknown) {
+      setMessage({
+        text: err instanceof Error ? err.message : 'An error occurred. Please try again.',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -93,8 +97,8 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
       if (result.user) {
         onGoogleSuccess(result.user);
       }
-    } catch (error: any) {
-      alert("Google Sign-In Error: " + (error?.message || error));
+    } catch (error: unknown) {
+      alert("Google Sign-In Error: " + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -117,7 +121,7 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
             mode === 'signup' ? 'text-xl sm:text-2xl' : 'text-2xl'
           }`}>
             {mode === 'signup'
-              ? 'Patient Account Registration' 
+              ? 'Account Registration' 
               : mode === 'forgot' 
               ? 'Reset Password' 
               : 'OmniQueue Health Login'}
