@@ -307,7 +307,7 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
                 {loading 
                   ? 'Processing...' 
                   : mode === 'signup' 
-                  ? 'Create Account & Send Verification Link'
+                  ? 'Create Account'
                   : mode === 'forgot' 
                   ? 'Send Password Reset Link' 
                   : 'Login'}
