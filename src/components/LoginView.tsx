@@ -1,14 +1,12 @@
 import React, { useState } from 'react';
-import { User, Lock, Mail, Phone, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { User, Lock, Mail, ArrowLeft } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { 
   signInWithPopup, 
   GoogleAuthProvider, 
   createUserWithEmailAndPassword, 
   sendPasswordResetEmail,
-  sendEmailVerification,
-  RecaptchaVerifier,
-  signInWithPhoneNumber
+  sendEmailVerification
 } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 
@@ -23,8 +21,6 @@ interface LoginViewProps {
 export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: LoginViewProps) {
   // Modes: 'login' | 'signup' | 'forgot'
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
-  const [verificationMethod, setVerificationMethod] = useState<'email' | 'phone'>('email');
-  const [step, setStep] = useState<'form' | 'otp'>('form');
 
   // Input states
   const [loginEmail, setLoginEmail] = useState('');
@@ -32,25 +28,12 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
 
   const [regFullName, setRegFullName] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('+63');
   const [regPassword, setRegPassword] = useState('');
 
   const [forgotEmail, setForgotEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<any>(null);
 
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // Initialize reCAPTCHA for SMS OTP
-  const setupRecaptcha = () => {
-    if (!(window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {}
-      });
-    }
-  };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,71 +60,27 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
         return;
       }
 
-      // Signup Mode workflow
-      if (verificationMethod === 'phone') {
-        setupRecaptcha();
-        const appVerifier = (window as any).recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, regPhone, appVerifier);
-        setConfirmationResult(result);
-        setMessage({ text: `SMS OTP code sent to ${regPhone}!`, type: 'success' });
-        setStep('otp'); // Keep OTP step only for phone verification
-      } else {
-        // Email Signup: Create account and send native Firebase verification link
-        const userCred = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
-        await sendEmailVerification(userCred.user);
+      const userCred = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
+      await sendEmailVerification(userCred.user);
 
-        await onRegister({
-          uid: userCred.user.uid,
-          fullName: regFullName,
-          email: regEmail,
-          phone: regPhone,
-        });
+      await onRegister({
+        uid: userCred.user.uid,
+        fullName: regFullName,
+        email: regEmail,
+        phone: '',
+      });
 
-        setMessage({
-          text: `Account created and profile saved. Verification link sent to ${regEmail}; you can verify it from your inbox.`,
-          type: 'success',
-        });
+      setMessage({
+        text: `Account created and profile saved. Verification link sent to ${regEmail}; you can verify it from your inbox.`,
+        type: 'success',
+      });
 
-        // Automatically switch back to login screen after a brief success display
-        setTimeout(() => {
-          setStep('form');
-          setMode('login');
-        }, 3000);
-      }
+      setTimeout(() => {
+        setMode('login');
+      }, 3000);
 
     } catch (err: any) {
       setMessage({ text: err.message || 'An error occurred. Please try again.', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      if (verificationMethod === 'phone' && confirmationResult) {
-        const userCredential = await confirmationResult.confirm(otpCode);
-        await onRegister({
-          uid: userCredential.user.uid,
-          fullName: regFullName,
-          email: regEmail,
-          phone: regPhone,
-        });
-        setMessage({ text: 'Phone number verified & account created successfully!', type: 'success' });
-      } else {
-        throw new Error('Invalid verification attempt.');
-      }
-
-      setTimeout(() => {
-        setStep('form');
-        setMode('login');
-      }, 1500);
-
-    } catch (err: any) {
-      setMessage({ text: err.message || 'Invalid OTP code.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -163,9 +102,7 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
     <div className={`flex min-h-dvh items-start justify-center overflow-y-auto bg-slate-900 bg-cover bg-center sm:items-center ${
       mode === 'signup' ? 'p-2 sm:p-6' : 'p-3 sm:p-6'
     }`} style={{ backgroundImage: `url('https://i.pinimg.com/1200x/af/b6/05/afb605d20bae30bb5f1886ee8464078e.jpg')` }}>
-      <div id="recaptcha-container"></div>
-
-      <div className={`my-auto w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900/85 text-center shadow-2xl backdrop-blur-md ${
+        <div className={`my-auto w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900/85 text-center shadow-2xl backdrop-blur-md ${
         mode === 'signup' ? 'space-y-3 p-4 sm:space-y-6 sm:p-8' : 'space-y-6 p-8'
       }`}>
         
@@ -179,18 +116,14 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
           <h2 className={`font-bold tracking-wide text-white ${
             mode === 'signup' ? 'text-xl sm:text-2xl' : 'text-2xl'
           }`}>
-            {step === 'otp' 
-              ? 'Enter Verification Code' 
-              : mode === 'signup' 
+            {mode === 'signup'
               ? 'Patient Account Registration' 
               : mode === 'forgot' 
               ? 'Reset Password' 
               : 'OmniQueue Health Login'}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            {step === 'otp' 
-              ? `Verification code sent via ${verificationMethod.toUpperCase()}`
-              : mode === 'signup' 
+            {mode === 'signup'
               ? 'Create your secure healthcare profile' 
               : mode === 'forgot' 
               ? 'Enter your email to receive a password reset link' 
@@ -208,9 +141,7 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
           </div>
         )}
 
-        {/* STEP 1: FORMS (LOGIN / SIGNUP / FORGOT) */}
-        {step === 'form' ? (
-          <>
+        <>
             {/* GOOGLE SIGN IN (Only shown on Login / Signup main view) */}
             {mode !== 'forgot' && (
               <>
@@ -238,32 +169,6 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
               </>
             )}
 
-            {/* VERIFICATION METHOD TABS (Only on Signup) */}
-            {mode === 'signup' && (
-              <div className="flex bg-slate-800 p-1 rounded-2xl border border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setVerificationMethod('email')}
-                  className={`flex-1 py-1.5 sm:py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1.5 ${
-                    verificationMethod === 'email' ? 'bg-[#1b7a57] text-white shadow-md' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Email Link</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVerificationMethod('phone')}
-                  className={`flex-1 py-1.5 sm:py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center space-x-1.5 ${
-                    verificationMethod === 'phone' ? 'bg-[#1b7a57] text-white shadow-md' : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>SMS OTP</span>
-                </button>
-              </div>
-            )}
-
             <form onSubmit={handleFormSubmit} className={mode === 'signup' ? 'space-y-2.5 sm:space-y-4' : 'space-y-4'}>
               {/* SIGNUP FIELDS */}
               {mode === 'signup' && (
@@ -284,39 +189,21 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
                     </div>
                   </div>
 
-                  {verificationMethod === 'email' ? (
-                    <div>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                          <Mail className="w-4 h-4" />
-                        </span>
-                        <input 
-                          type="email" 
-                          required 
-                          placeholder="Email Address" 
-                          value={regEmail} 
-                          onChange={(e) => setRegEmail(e.target.value)} 
-                          className="w-full pl-10 pr-4 py-2.5 sm:py-3.5 bg-slate-800/80 border border-slate-700 rounded-2xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#1b7a57] text-sm" 
-                        />
-                      </div>
+                  <div>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                        <Mail className="w-4 h-4" />
+                      </span>
+                      <input
+                        type="email"
+                        required
+                        placeholder="Email Address"
+                        value={regEmail}
+                        onChange={(e) => setRegEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 sm:py-3.5 bg-slate-800/80 border border-slate-700 rounded-2xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#1b7a57] text-sm"
+                      />
                     </div>
-                  ) : (
-                    <div>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
-                          <Phone className="w-4 h-4" />
-                        </span>
-                        <input 
-                          type="tel" 
-                          required 
-                          placeholder="+639123456789" 
-                          value={regPhone} 
-                          onChange={(e) => setRegPhone(e.target.value)} 
-                          className="w-full pl-10 pr-4 py-2.5 sm:py-3.5 bg-slate-800/80 border border-slate-700 rounded-2xl text-white placeholder-slate-400 outline-none focus:ring-2 focus:ring-[#1b7a57] text-sm" 
-                        />
-                      </div>
-                    </div>
-                  )}
+                  </div>
 
                   <div>
                     <div className="relative">
@@ -416,7 +303,7 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
                 {loading 
                   ? 'Processing...' 
                   : mode === 'signup' 
-                  ? (verificationMethod === 'email' ? 'Send Verification Link' : 'Send Verification OTP')
+                  ? 'Create Account & Send Verification Link'
                   : mode === 'forgot' 
                   ? 'Send Password Reset Link' 
                   : 'Login'}
@@ -450,40 +337,6 @@ export default function LoginView({ onLogin, onRegister, onGoogleSuccess }: Logi
               )}
             </div>
           </>
-        ) : (
-          /* STEP 2: OTP VERIFICATION SCREEN (For Phone Only) */
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div>
-              <input
-                type="text"
-                maxLength={6}
-                required
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                placeholder="123456"
-                className="w-full text-center tracking-widest text-2xl font-extrabold py-3.5 bg-slate-800/80 border border-slate-700 rounded-2xl text-white placeholder-slate-500 outline-none focus:ring-2 focus:ring-[#1b7a57]"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-[#1b7a57] hover:bg-emerald-600 text-white font-bold rounded-2xl shadow-lg transition duration-200 text-sm flex items-center justify-center space-x-1.5 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{loading ? 'Verifying...' : 'Verify OTP & Complete'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStep('form')}
-              className="w-full flex items-center justify-center space-x-1 text-xs text-slate-400 hover:text-white font-semibold pt-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back / Change Info</span>
-            </button>
-          </form>
-        )}
 
       </div>
     </div>
